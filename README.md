@@ -1,22 +1,24 @@
 # Regis Marie College — Document Request System (Next.js + Supabase)
 
-Full rebuild of the PHP/MySQL system as a Next.js + Supabase app: **left
-sidebar** in a deep-blue theme, role-aware nav, and four portals working
-end-to-end.
+A Next.js 14 (App Router) + Supabase portal for Regis Marie College document
+requests. Role-aware, deep-blue theme, and four portals working end-to-end.
 
 **Student:** dashboard, new request + GCash QR/number + payment proof upload
 (with a class list field for Certificate of Enrollment requests), request
-history/tracking, profile.
+history/tracking, payments, profile, messages.
 **Registrar:** dashboard, manage requests (status updates, blocked from
 releasing Good Moral/Diploma until approved), verify payments, diploma
-clearance, reports + CSV export.
-**Guidance Department (new role):** dashboard, approve/reject Good Moral
-Certificate requests before the registrar can release them.
+clearance, reports + CSV export, messages.
+**Guidance Department:** dashboard, approve/reject Good Moral Certificate
+requests before the registrar can release them, messages.
 **Admin:** dashboard, manage users (change role, archive/restore — accounts
-are never deleted), import past records via CSV, analytics with search/filter
-across status/document/requestor/course, reports + CSV export.
+are never deleted), approve/reject new registrations, import past records via
+CSV, analytics with search/filter across status/document/requestor/course,
+reports + CSV export, messages.
 
-Email status updates go out automatically via Resend (see section 5 below).
+Email status updates go out automatically via **EmailJS** (see section 5).
+There is **one** email path in the app — everything goes through
+`lib/email.ts` — so the credentials only need to be configured once.
 
 ## 1. Supabase setup
 
@@ -24,21 +26,28 @@ Email status updates go out automatically via Resend (see section 5 below).
 2. Go to **SQL Editor** → paste the contents of `supabase/schema.sql` → Run.
    This creates all tables, the `profiles` auto-provisioning trigger, Row Level
    Security policies, and a private `payment-proofs` storage bucket.
-3. Go to **Project Settings → API** and copy the **Project URL** and **anon
-   public key**.
-3b. Go to **SQL Editor** again and run `supabase/migrations/002_features.sql`
-   — **run the first line (`alter type user_role add value...`) by itself**,
-   then run the rest of the file in a second query (Postgres won't let a
-   brand-new enum value be used in the same transaction that created it).
-   This adds the `guidance` role, Good Moral/Diploma approval columns, and
-   the class-list field.
-4. Create your first admin/registrar/guidance accounts by registering through the app
-   (`/register` currently signs people up as `student`), then in the SQL
-   editor run:
+3. In the SQL Editor, run the remaining migrations **in order**:
+   - `supabase/migrations/002_features.sql` — **run the first line
+     (`alter type user_role add value ...`) by itself**, then run the rest of
+     the file in a second query (Postgres won't let a brand-new enum value be
+     used in the same transaction that created it). Adds the `guidance` role,
+     Good Moral/Diploma approval columns, and the class-list field.
+   - `supabase/migrations/003_security_hardening.sql` — hardens the
+     registration trigger and updates the `is_staff()` helper.
+   - `supabase/migrations/004_portal_updates.sql` (once the Phase 2–4 portal
+     migration lands) — request history audit table, pickup/receipt fields,
+     rejection reasons, and the walk-in receipt-number flow.
+4. Go to **Project Settings → API** and copy the **Project URL**, **anon
+   public key**, and **service role key**. The service role key is a secret —
+   it is never committed (see `.env.local.example`) and powers the auth API
+   routes (email verification, password reset).
+5. Create your first admin/registrar/guidance accounts by registering through
+   the app (`/register` currently signs people up as `student`), then in the
+   SQL editor run:
    ```sql
    update profiles set role = 'admin' where email = 'you@example.com';
    ```
-5. **Email verification** is on by default in Supabase: new sign-ups get a
+6. **Email verification** is on by default in Supabase: new sign-ups get a
    confirmation email and can't sign in until they click it (the app's
    `/register` page shows a "check your email" screen, and `/auth/confirm`
    handles the confirmation link). To customize it:
@@ -55,7 +64,8 @@ Email status updates go out automatically via Resend (see section 5 below).
 
 ```bash
 cp .env.local.example .env.local
-# fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
+# fill in NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
+# SUPABASE_SERVICE_ROLE_KEY, and the NEXT_PUBLIC_EMAILJS_* values
 
 npm install
 npm run dev
@@ -63,21 +73,23 @@ npm run dev
 
 Visit http://localhost:3000 — you'll be redirected to `/login`.
 
-**Important:** Before running the app, you must run 3 SQL files in the Supabase SQL Editor in order:
-1. `supabase/schema.sql` — creates all tables, triggers, RLS policies, and storage
-2. `supabase/migrations/002_features.sql` — adds guidance role, approval columns, class list (run the ALTER TYPE line first, then the rest)
-3. `supabase/migrations/003_security_hardening.sql` — hardens the registration trigger and updates `is_staff()` helper
+> `emailjs` works without `@emailjs/browser` — all emails are sent from the
+> server via `lib/email.ts` using the REST API, so no public keys ship in the
+> browser bundle.
 
 ## 3. Push to GitHub
 
 ```bash
 git init
 git add .
-git commit -m "Phase 1: Next.js + Supabase scaffold, left sidebar, blue theme"
+git commit -m "Regis Marie College document request portal"
 git branch -M main
 git remote add origin https://github.com/<your-username>/<your-repo>.git
 git push -u origin main
 ```
+
+`node_modules`, `.next`, and `.env.local` are gitignored — secrets never land
+in the repo.
 
 ## 4. Deploy on Vercel
 
@@ -85,90 +97,55 @@ git push -u origin main
 2. In **Environment Variables**, add:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `NEXT_PUBLIC_EMAILJS_SERVICE_ID`
+   - `NEXT_PUBLIC_EMAILJS_TEMPLATE_ID`
+   - `NEXT_PUBLIC_EMAILJS_PUBLIC_KEY`
 3. Deploy. Every push to `main` will auto-redeploy.
+
+## 5. Email status updates (EmailJS)
+
+Whenever a registrar changes a request's **status**, the student gets an
+email (plus an in-app notification). Emails only send on an actual change —
+updating a request to the status it already has does not fire a duplicate
+email.
+
+1. Create a free account at https://www.emailjs.com.
+2. **Add a service** (any supported provider) and note its **Service ID**.
+3. Create an **Email Template** with `{{to_email}}`, `{{subject}}`, and
+   `{{message}}` variables and note its **Template ID**.
+4. From **Account → General**, copy your **Public Key**.
+5. Put all three into `.env.local` (see `.env.local.example`):
+   `NEXT_PUBLIC_EMAILJS_SERVICE_ID`, `NEXT_PUBLIC_EMAILJS_TEMPLATE_ID`,
+   `NEXT_PUBLIC_EMAILJS_PUBLIC_KEY`.
+6. Add the same variables in Vercel for production.
+
+That's it — verification, password-reset, approval, and status-change emails
+all route through `lib/email.ts`. To change the wording, edit
+`lib/email-templates.ts`.
+
+## 6. Fixing Supabase's email rate limit
+
+Supabase's **free built-in email sender** (used for its own verification/reset
+links) is capped very low — around 2–4 emails per hour. The app's own
+transactional emails bypass this because they use EmailJS, but Supabase's
+built-in "Confirm signup" / "Reset password" emails still use it. Connect any
+SMTP provider (Resend, Gmail, etc.) in **Authentication → Settings → SMTP
+Settings** to lift that limit:
+- Host: your provider's SMTP host
+- Port: `465` or `587`
+- Username / Password: your provider's credentials
+- Sender email: an address on a verified domain
 
 ## Design notes
 
-- Sidebar is fixed to the **left**, full height, gradient from `brand-950`
-  (near-navy) down to `brand-700`, with role-specific nav items and an active
-  state highlight.
-- Color scale lives in `tailwind.config.ts` under `brand.50`–`brand.950` —
-  edit those hex values to shift the whole app's shade of blue in one place.
+- The app is a **portal**: public landing page at `/`, role-aware navigation,
+  sticky top bar, notification bell, and a mobile drawer.
+- Color scale lives in `tailwind.config.ts` under `brand.50`–`brand.950` with
+  an accent `gold` — edit those hex values to shift the whole app's shade in
+  one place.
 - `app/(dashboard)/layout.tsx` is a server component that loads the signed-in
-  user's profile (name + role) and feeds it to `DashboardShell`, which renders
-  `Sidebar` + `Topbar` + page content. Every role's pages live under
-  `app/(dashboard)/<role>/...` and automatically get the sidebar.
-
-## 5. Email status updates (Resend + Supabase Edge Function)
-
-Whenever a registrar changes a request's status, the student now gets an
-email — this is coded in `supabase/functions/send-status-email/index.ts`, it
-just needs to be deployed and connected. Steps:
-
-1. **Create a Resend account** at resend.com (free tier: 3,000 emails/month).
-   - Get your API key from **API Keys**.
-   - Under **Domains**, verify a domain you own (e.g. `regismarie.edu.ph`) so
-     you can send as `registrar@regismarie.edu.ph`. If you don't have a
-     domain ready yet, you can start with Resend's shared test sender
-     (`onboarding@resend.dev`) — fine for testing, not for real students.
-
-2. **Install the Supabase CLI** (one-time, on your own machine):
-   ```bash
-   npm install -g supabase
-   supabase login
-   supabase link --project-ref YOUR_PROJECT_REF   # find this in your Supabase project URL
-   ```
-
-3. **Deploy the function:**
-   ```bash
-   supabase functions deploy send-status-email
-   ```
-
-4. **Set secrets** (the function reads these at runtime):
-   ```bash
-   supabase secrets set RESEND_API_KEY=re_your_key_here
-   supabase secrets set FROM_EMAIL="Regis Marie Registrar <registrar@regismarie.edu.ph>"
-   ```
-
-5. **Connect it with a Database Webhook** (no code — done in the Supabase
-   dashboard):
-   - Go to **Database → Webhooks → Create a new webhook**
-   - Table: `requests`
-   - Events: `Update`
-   - Type: `Supabase Edge Functions`
-   - Function: `send-status-email`
-   - Save.
-
-That's it — from then on, every time a registrar updates a request's status
-in `/registrar/requests`, the student gets an email and a matching row in
-their in-app notifications. The email wording per status is defined near the
-top of `index.ts` if you want to reword any of them.
-
-## 6. Unlimited user sign-ups (fixing Supabase's email rate limit)
-
-Supabase's **free built-in email sender** (used for verification/reset
-emails) is capped very low — around 2–4 emails per **hour** — which is fine
-for testing but will block real registrations once more than a couple of
-students sign up around the same time. That's a Supabase mailer limit, not a
-limit on how many user accounts you can have (accounts themselves are
-unlimited on the free tier).
-
-Fix: connect the same Resend account from section 5 as **custom SMTP**, so
-Supabase stops using its own limited mailer entirely:
-
-1. In Resend, go to **SMTP** (or **API Keys** → note your API key, Resend's
-   SMTP username is `resend`, password is your API key).
-2. In Supabase: **Authentication → Settings → SMTP Settings** → enable
-   "Enable Custom SMTP" and fill in:
-   - Host: `smtp.resend.com`
-   - Port: `465` (or `587`)
-   - Username: `resend`
-   - Password: your Resend API key
-   - Sender email: the same `FROM_EMAIL` you set as a secret in section 5
-3. Save. From then on, verification/reset emails go through Resend's much
-   higher limit (3,000/month free) instead of Supabase's built-in one, so
-   registrations won't get blocked as more students sign up.
-
-## Not included yet
-
-- Nothing planned right now — the status-email flow above was the last gap.
+  user's profile (name + role) and feeds it to the layout shell. Every role's
+  pages live under `app/(dashboard)/<role>/...` and automatically get it.
+- Shared styles live in `app/globals.css` (`.card`, `.btn-primary`,
+  `.btn-outline`, `.input`, `.label`, `.badge`, `.skeleton`).

@@ -1,9 +1,5 @@
-import emailjs from "@emailjs/browser";
 import { createClient } from "@/lib/supabase/client";
-
-const SERVICE_ID = "service_31gows4";
-const TEMPLATE_ID = "template_wq8k3ef";
-const PUBLIC_KEY = "yMI6tCex_8jAN7IFu";
+import { sendEmail } from "@/lib/email";
 
 export async function sendNotification({
   senderId,
@@ -46,18 +42,13 @@ export async function sendNotification({
 
   if (profile?.email) {
     try {
-      await emailjs.send(
-        SERVICE_ID,
-        TEMPLATE_ID,
-        {
-          to_email: profile.email,
-          subject,
-          html_content: html,
-        },
-        { publicKey: PUBLIC_KEY }
-      );
+      await sendEmail({
+        to: profile.email,
+        subject,
+        html,
+      });
     } catch (err) {
-      console.error("EmailJS notification error:", err);
+      console.error("Email notification error:", err);
     }
   }
 }

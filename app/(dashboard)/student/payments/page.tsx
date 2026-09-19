@@ -106,7 +106,7 @@ export default function StudentPaymentsPage() {
                 {p.payment_method === "gcash" ? (
                   <p>Ref: <span className="font-medium">{p.gcash_reference}</span> · ₱{p.amount}</p>
                 ) : (
-                  <p>Amount: <span className="font-medium">₱{p.amount}</span> — Pay at registrar's office</p>
+                  <p>Amount: <span className="font-medium">₱{p.amount}</span> — Pay at registrar&apos;s office</p>
                 )}
                 <p>Submitted: {new Date(p.created_at).toLocaleDateString()}</p>
               </div>

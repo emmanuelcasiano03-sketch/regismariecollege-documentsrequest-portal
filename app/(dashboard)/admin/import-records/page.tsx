@@ -100,8 +100,8 @@ export default function ImportRecordsPage() {
           full_name, course, student_number, student_email, document_name, status, copies, date
         </code>
         <p className="text-xs text-slate-400">
-          <code>document_name</code> must match a document type exactly (e.g. "Transcript of Records").{" "}
-          <code>status</code> defaults to "Completed" if left blank. <code>date</code> is optional
+<code>document_name</code> must match a document type exactly (e.g. &quot;Transcript of Records&quot;).{" "}
+<code>status</code> defaults to &quot;Completed&quot; if left blank. <code>date</code> is optional
           (YYYY-MM-DD).
         </p>
 

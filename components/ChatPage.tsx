@@ -261,7 +261,7 @@ export default function ChatPage({ userId, role }: { userId: string; role: strin
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <MessageSquare className="mb-2 h-8 w-8 text-slate-300" />
               <p className="text-xs text-slate-400">No conversations yet.</p>
-              {!isStudent && <p className="text-xs text-slate-400">Click "New Chat" to start one.</p>}
+              {!isStudent && <p className="text-xs text-slate-400">Click &quot;New Chat&quot; to start one.</p>}
             </div>
           ) : (
             conversations.map((c) => (

@@ -344,7 +344,7 @@ export default function NewRequestPage() {
               }`}
             >
               <p className="font-semibold">Walk-in</p>
-              <p className="mt-1 text-xs">Pay at the registrar's office</p>
+              <p className="mt-1 text-xs">Pay at the registrar&apos;s office</p>
             </button>
           </div>
         </div>
@@ -388,7 +388,7 @@ export default function NewRequestPage() {
         {paymentMethod === "walk_in" && (
           <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
             <p className="font-medium">Walk-in Payment</p>
-            <p className="mt-1">Pay <strong>₱{amount.toFixed(2)}</strong> in person at the registrar's office. You will give the payment and collect the documents on the same transaction.</p>
+            <p className="mt-1">Pay <strong>₱{amount.toFixed(2)}</strong> in person at the registrar&apos;s office. You will give the payment and collect the documents on the same transaction.</p>
           </div>
         )}
 

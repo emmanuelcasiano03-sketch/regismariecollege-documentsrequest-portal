@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { UserCheck, UserX, FileText, ExternalLink, Loader2 } from "lucide-react";
-import { sendEmailJS } from "@/lib/emailjs";
+import { sendEmail } from "@/lib/email";
 import { accountApproved, accountRejected } from "@/lib/email-templates";
 import { titleCaseName } from "@/lib/validation";
 
@@ -83,7 +83,7 @@ export default function AdminApprovalsPage() {
     });
 
     try {
-      await sendEmailJS({
+      await sendEmail({
         to: u.email,
         subject: "Account Approved — Regis Marie College",
         html: accountApproved(u.full_name),
@@ -108,7 +108,7 @@ export default function AdminApprovalsPage() {
     setProcessingId(u.id);
 
     try {
-      await sendEmailJS({
+      await sendEmail({
         to: u.email,
         subject: "Account Registration — Regis Marie College",
         html: accountRejected(u.full_name, reason),

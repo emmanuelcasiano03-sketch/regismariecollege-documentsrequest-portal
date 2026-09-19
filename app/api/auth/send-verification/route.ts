@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendEmailJS } from "@/lib/emailjs";
+import { sendEmail } from "@/lib/email";
 import { emailVerification } from "@/lib/email-templates";
 
 function generateCode(): string {
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       console.error("Insert error:", insertErr);
     }
 
-    await sendEmailJS({
+    await sendEmail({
       to: email,
       subject: "Verify Your Email — Regis Marie College",
       html: emailVerification(code),

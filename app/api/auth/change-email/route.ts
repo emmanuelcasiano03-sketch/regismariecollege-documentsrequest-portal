@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import { sendEmailJS } from "@/lib/emailjs";
+import { sendEmail } from "@/lib/email";
 import { emailVerification } from "@/lib/email-templates";
 import { validateEmail } from "@/lib/validation";
 
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
       const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString();
       await admin.from("email_verifications").insert({ email: new_email, code: c, expires_at });
 
-      await sendEmailJS({
+      await sendEmail({
         to: new_email,
         subject: "Verify Your New Email — Regis Marie College",
         html: emailVerification(c),

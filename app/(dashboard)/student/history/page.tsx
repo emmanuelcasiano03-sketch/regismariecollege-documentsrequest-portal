@@ -50,7 +50,7 @@ export default async function HistoryPage() {
     <div className="space-y-4">
       <div className="card">
         <h2 className="text-xl font-bold text-brand-900">My Request History</h2>
-        <p className="text-sm text-slate-500">Track the status of every document request you've submitted.</p>
+        <p className="text-sm text-slate-500">Track the status of every document request you&apos;ve submitted.</p>
       </div>
 
       {typedRequests.length === 0 ? (

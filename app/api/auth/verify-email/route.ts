@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { sendEmailJS } from "@/lib/emailjs";
+import { sendEmail } from "@/lib/email";
 import { accountWaitingApproval } from "@/lib/email-templates";
 import { titleCaseName } from "@/lib/validation";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getAdminClient } from "@/lib/supabase/admin";
 
 async function findAuthUserByEmail(email: string) {
+  const supabase = getAdminClient();
   let page = 1;
   while (page <= 10) {
     const { data } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
@@ -42,6 +38,7 @@ export async function POST(req: Request) {
     } = await req.json();
     if (!email || !code) return NextResponse.json({ error: "Email and code are required." }, { status: 400 });
 
+    const supabase = getAdminClient();
     const { data: verification } = await supabase
       .from("email_verifications")
       .select("id")
@@ -246,7 +243,7 @@ export async function POST(req: Request) {
       await supabase.from("profiles").update({ is_active: false }).eq("id", authUserId);
 
       try {
-        await sendEmailJS({
+        await sendEmail({
           to: email,
           subject: "Your Account Is Waiting for Approval — Regis Marie College",
           html: accountWaitingApproval(profile.full_name ?? "there"),

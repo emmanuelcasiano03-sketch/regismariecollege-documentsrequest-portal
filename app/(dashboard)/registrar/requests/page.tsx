@@ -219,6 +219,17 @@ export default function ManageRequestsPage() {
     }
 
     setUpdatingId(r.id);
+    // Guard: never fire updates/emails unless the status actually changes.
+    const { data: current } = await supabase
+      .from("requests")
+      .select("status")
+      .eq("id", r.id)
+      .single();
+    if (current && current.status === status) {
+      toast.info(`"${r.documents?.name}" is already "${status}".`);
+      setUpdatingId(null);
+      return;
+    }
     const { data: me } = await supabase.auth.getUser();
     const patch: Record<string, unknown> = { status };
     if (status === "Ready for Pickup") patch.pickup_at = pickupAt ?? null;

@@ -158,13 +158,13 @@ function VerifyEmailForm() {
 
         {sendError && (
           <div className="rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-700">
-            We couldn't send the code automatically.
+            We couldn&apos;t send the code automatically.
             {sendErrorMsg ? (
               <>
                 {" "}Reason: <span className="font-mono text-xs">{sendErrorMsg}</span>
               </>
             ) : null}{" "}
-            Use <strong>Resend Code</strong> below once it's available.
+            Use <strong>Resend Code</strong> below once it&apos;s available.
           </div>
         )}
 
