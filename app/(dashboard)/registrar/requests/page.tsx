@@ -36,15 +36,24 @@ const STATUS_META: Record<string, { color: string; chip: string }> = {
   Cancelled: { color: "#8b99a7", chip: "bg-slate-100 text-slate-600" },
 };
 
-const CHIPS: { id: string; label: string; statuses: string[] | null; color: string | null }[] = [
-  { id: "All", label: "All", statuses: null, color: null },
+const ACTIVE_STATUSES = ["Pending", "Payment Verification", "Processing", "Ready for Pickup"];
+const HISTORY_STATUSES = ["Completed", "Rejected", "Cancelled"];
+
+const ACTIVE_CHIPS: { id: string; label: string; statuses: string[]; color: string | null }[] = [
+  { id: "All", label: "All", statuses: ACTIVE_STATUSES, color: null },
   { id: "received", label: "Received", statuses: ["Pending", "Payment Verification"], color: "#8b99a7" },
   { id: "processing", label: "Processing", statuses: ["Processing"], color: "#b4690e" },
   { id: "ready", label: "Ready", statuses: ["Ready for Pickup"], color: "#177a4c" },
+];
+
+const HISTORY_CHIPS: { id: string; label: string; statuses: string[]; color: string | null }[] = [
+  { id: "All", label: "All", statuses: HISTORY_STATUSES, color: null },
   { id: "released", label: "Released", statuses: ["Completed"], color: "#5b6b7c" },
   { id: "rejected", label: "Rejected", statuses: ["Rejected"], color: "#b3261e" },
   { id: "cancelled", label: "Cancelled", statuses: ["Cancelled"], color: null },
 ];
+
+const PAGE_SIZE = 20;
 
 function isWalkIn(r: RequestWithRelations): boolean {
   return Array.isArray(r.payments) && r.payments.some((p) => p.payment_method === "walk_in");
@@ -136,8 +145,10 @@ type PickupTarget = { kind: "single"; r: RequestWithRelations } | { kind: "bulk"
 export default function ManageRequestsPage() {
   const supabase = createClient();
   const [requests, setRequests] = useState<RequestWithRelations[]>([]);
+  const [tab, setTab] = useState<"active" | "history">("active");
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [pickupTarget, setPickupTarget] = useState<PickupTarget | null>(null);
@@ -431,25 +442,30 @@ export default function ManageRequestsPage() {
 
   const selectedDocs = selected.size ? requests.filter((r) => selected.has(r.id)) : [];
 
+  const chips = useMemo(() => (tab === "active" ? ACTIVE_CHIPS : HISTORY_CHIPS), [tab]);
+
   const counts = useMemo(() => {
-    const base: Record<string, number> = { All: requests.length };
-    for (const chip of CHIPS) {
-      if (chip.id === "All") continue;
-      base[chip.id] = requests.filter((r) => chip.statuses!.includes(r.status)).length;
+    const base: Record<string, number> = {};
+    for (const chip of chips) {
+      base[chip.id] = requests.filter((r) => chip.statuses.includes(r.status)).length;
     }
     return base;
-  }, [requests]);
+  }, [requests, chips]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [tab, filter, search]);
 
   const visible = useMemo(() => {
-    const chip = CHIPS.find((c) => c.id === filter);
+    const chip = chips.find((c) => c.id === filter) ?? chips[0];
     const q = search.toLowerCase();
     return requests.filter((r) => {
-      if (chip?.statuses && !chip.statuses.includes(r.status)) return false;
+      if (!chip.statuses.includes(r.status)) return false;
       if (!q) return true;
       const hay = `${r.profiles?.full_name ?? ""} ${r.profiles?.student_number ?? ""} ${r.tracking_code ?? ""} ${r.documents?.name ?? ""}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [requests, filter, search]);
+  }, [requests, chips, filter, search]);
 
   const groups = useMemo(() => {
     const map = new Map<string, RequestWithRelations[]>();
@@ -462,7 +478,16 @@ export default function ManageRequestsPage() {
     return Array.from(map.values());
   }, [visible]);
 
-  const openCount = requests.filter((r) => !["Completed", "Rejected", "Cancelled"].includes(r.status)).length;
+  const totalPages = Math.max(1, Math.ceil(groups.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedGroups = groups.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const pagerStart = (currentPage - 1) * PAGE_SIZE + 1;
+  const pagerEnd = Math.min(currentPage * PAGE_SIZE, groups.length);
+
+  const completedCount = requests.filter((r) => r.status === "Completed").length;
+  const rejectedCount = requests.filter((r) => r.status === "Rejected").length;
+  const cancelledCount = requests.filter((r) => r.status === "Cancelled").length;
+  const openCount = requests.filter((r) => !HISTORY_STATUSES.includes(r.status)).length;
   const awaitingCount = requests.filter((r) => r.status === "Ready for Pickup").length;
 
   function toggleSelect(id: number) {
@@ -477,6 +502,31 @@ export default function ManageRequestsPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3">
+        <div className="flex w-fit items-center gap-1 rounded-full bg-slate-100 p-1">
+          <button
+            onClick={() => setTab("active")}
+            aria-pressed={tab === "active"}
+            className={`rounded-full px-4 py-1.5 text-[13px] font-semibold transition-colors ${
+              tab === "active" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Active
+            <span className="ml-1.5 text-[11px] font-bold text-brand-600">{openCount}</span>
+          </button>
+          <button
+            onClick={() => setTab("history")}
+            aria-pressed={tab === "history"}
+            className={`rounded-full px-4 py-1.5 text-[13px] font-semibold transition-colors ${
+              tab === "history" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            History
+            <span className="ml-1.5 text-[11px] font-bold text-slate-400">
+              {completedCount + rejectedCount + cancelledCount}
+            </span>
+          </button>
+        </div>
+
         <div className="relative">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
@@ -493,7 +543,7 @@ export default function ManageRequestsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {CHIPS.map((chip) => (
+          {chips.map((chip) => (
             <button
               key={chip.id}
               onClick={() => setFilter(chip.id)}
@@ -519,8 +569,18 @@ export default function ManageRequestsPage() {
 
         {!loading && (
           <p className="text-[13px] text-slate-500">
-            <span className="font-semibold text-brand-700">{openCount}</span> open ·{" "}
-            <span className="font-semibold text-emerald-700">{awaitingCount}</span> awaiting pickup
+            {tab === "active" ? (
+              <>
+                <span className="font-semibold text-brand-700">{openCount}</span> open ·{" "}
+                <span className="font-semibold text-emerald-700">{awaitingCount}</span> awaiting pickup
+              </>
+            ) : (
+              <>
+                <span className="font-semibold text-slate-700">{completedCount}</span> released ·{" "}
+                <span className="font-semibold text-red-700">{rejectedCount}</span> rejected ·{" "}
+                <span className="font-semibold text-slate-500">{cancelledCount}</span> cancelled
+              </>
+            )}
           </p>
         )}
       </div>
@@ -549,7 +609,7 @@ export default function ManageRequestsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {groups.map((group) => {
+          {pagedGroups.map((group) => {
             const first = group[0];
             const student = first.profiles;
             return (
@@ -718,6 +778,33 @@ export default function ManageRequestsPage() {
         </div>
       )}
 
+      {totalPages > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 text-[13px] text-slate-500">
+          <span>
+            Showing {pagerStart}–{pagerEnd} of {groups.length} submission batch{groups.length !== 1 ? "es" : ""}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(currentPage - 1)}
+              disabled={currentPage <= 1}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-medium transition-colors hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="px-2 font-semibold text-slate-700">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setPage(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-medium transition-colors hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
       {pickupTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-xl bg-white p-5 shadow-xl">
@@ -797,11 +884,12 @@ export default function ManageRequestsPage() {
         </div>
       )}
 
-      <div
-        className={`fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-full bg-slate-900 py-2.5 pl-5 pr-2.5 text-white shadow-2xl transition-transform ${
-          selected.size > 0 ? "translate-y-0" : "translate-y-[150%]"
-        }`}
-      >
+      {tab === "active" && (
+        <div
+          className={`fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-full bg-slate-900 py-2.5 pl-5 pr-2.5 text-white shadow-2xl transition-transform ${
+            selected.size > 0 ? "translate-y-0" : "translate-y-[150%]"
+          }`}
+        >
         <span className="text-[13.5px] font-semibold">{selected.size} selected</span>
         {selectedDocs.length > 0 && (
           <PrintDocument
@@ -833,6 +921,7 @@ export default function ManageRequestsPage() {
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 }

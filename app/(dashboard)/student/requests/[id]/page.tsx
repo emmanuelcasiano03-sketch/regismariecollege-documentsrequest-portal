@@ -13,6 +13,8 @@ const STATUS_COLOR: Record<string, string> = {
   Cancelled: "bg-slate-100 text-slate-600",
 };
 
+type TimelineRow = { status: string; remarks: string | null; changed_at: string };
+
 export default async function RequestDetailPage({ params }: { params: { id: string } }) {
   const profile = await getProfile();
   if (!profile) redirect("/login");
@@ -30,11 +32,32 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
 
   if (!request) notFound();
 
-  const { data: history } = await supabase
-    .from("status_history")
-    .select("status, remarks, changed_at")
+  let history: TimelineRow[] = [];
+  const { data: events } = await supabase
+    .from("request_events")
+    .select("event_type, from_status, to_status, note, created_at")
     .eq("request_id", requestId)
-    .order("changed_at", { ascending: true });
+    .order("created_at", { ascending: true });
+
+  if (events && events.length > 0) {
+    history = (events as {
+      event_type: string;
+      to_status: string | null;
+      note: string | null;
+      created_at: string;
+    }[]).map((e) => ({
+      status: e.event_type === "created" ? "Created" : (e.to_status ?? e.event_type),
+      remarks: e.note,
+      changed_at: e.created_at,
+    }));
+  } else {
+    const { data: legacy } = await supabase
+      .from("status_history")
+      .select("status, remarks, changed_at")
+      .eq("request_id", requestId)
+      .order("changed_at", { ascending: true });
+    history = (legacy as TimelineRow[] | null) ?? [];
+  }
 
   const { data: payment } = await supabase
     .from("payments")
