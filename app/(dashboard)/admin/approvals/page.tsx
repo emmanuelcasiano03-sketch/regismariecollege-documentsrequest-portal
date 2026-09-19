@@ -120,7 +120,7 @@ export default function AdminApprovalsPage() {
     const res = await fetch("/api/admin/reject-user", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: u.id }),
+      body: JSON.stringify({ userId: u.id, fullName: u.full_name, email: u.email, reason }),
     });
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({}));

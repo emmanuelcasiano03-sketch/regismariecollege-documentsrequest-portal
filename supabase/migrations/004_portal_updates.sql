@@ -81,3 +81,90 @@ where not exists (
   select 1 from public.request_events e
   where e.request_id = sh.request_id and e.created_at = sh.changed_at and e.to_status = sh.status
 );
+
+-- ------------------------------------------------------------
+-- Phase 3: rejection reason enforcement (DB-level safety nets)
+-- The clerk UIs already require a reason; these triggers guarantee it
+-- stays mandatory even for direct SQL / API writes.
+-- ------------------------------------------------------------
+
+create or replace function public.require_request_reject_reason()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.status in ('Rejected', 'Cancelled')
+     and (new.remarks is null or btrim(new.remarks) = '') then
+    raise exception 'A reason is required to % this request.',
+      case when new.status = 'Rejected' then 'reject' else 'cancel' end;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_require_request_reject_reason on public.requests;
+create trigger trg_require_request_reject_reason
+  before update of status on public.requests
+  for each row execute function public.require_request_reject_reason();
+
+create or replace function public.require_payment_reject_reason()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.status = 'Rejected' and (new.rejection_reason is null or btrim(new.rejection_reason) = '') then
+    raise exception 'A rejection reason is required to reject a payment.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_require_payment_reject_reason on public.payments;
+create trigger trg_require_payment_reject_reason
+  before update of status on public.payments
+  for each row execute function public.require_payment_reject_reason();
+
+create or replace function public.require_guidance_reject_reason()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.guidance_status = 'Rejected'
+     and (new.remarks is null or btrim(new.remarks) = '') then
+    raise exception 'A reason is required when the Guidance Department rejects a request.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_require_guidance_reject_reason on public.requests;
+create trigger trg_require_guidance_reject_reason
+  before update of guidance_status on public.requests
+  for each row execute function public.require_guidance_reject_reason();
+
+-- ------------------------------------------------------------
+-- Phase 3: account rejection audit log
+-- Rejected registrations are deleted (auth + profile cascade), so their
+-- rejection reason is persisted here *before* deletion for the admin log.
+-- ------------------------------------------------------------
+
+create table if not exists public.account_rejections (
+  id bigint generated always as identity primary key,
+  profile_id uuid,
+  full_name text not null,
+  email text not null,
+  reason text not null,
+  rejected_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.account_rejections enable row level security;
+
+create policy "account_rejections_select_staff" on public.account_rejections
+  for select using (public.is_staff());
+
+create policy "account_rejections_insert_staff" on public.account_rejections
+  for insert with check (public.is_staff());
