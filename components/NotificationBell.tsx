@@ -91,7 +91,7 @@ export default function NotificationBell({ userId, role }: { userId: string; rol
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="relative rounded-lg p-2 text-brand-500 transition hover:bg-brand-50 hover:text-brand-700"
+        className="relative rounded-lg p-2 text-brand-200 transition hover:bg-white/10 hover:text-white"
         aria-label="Notifications"
       >
         <Bell className="h-5 w-5" />

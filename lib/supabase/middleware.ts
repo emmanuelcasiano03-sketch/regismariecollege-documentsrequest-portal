@@ -161,5 +161,22 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Public landing page: signed-in users are sent straight to their portal.
+  if (user && path === "/") {
+    const profile = await getProfile(supabase, user.id);
+    const url = request.nextUrl.clone();
+    if (profile?.email_verified === false) {
+      url.pathname = "/auth/verify-email";
+      url.searchParams.set("email", profile.email ?? user.email ?? "");
+      return NextResponse.redirect(url);
+    }
+    if (profile && !profile.is_active) {
+      url.pathname = "/student/pending";
+      return NextResponse.redirect(url);
+    }
+    url.pathname = roleHome[profile?.role ?? "student"];
+    return NextResponse.redirect(url);
+  }
+
   return response;
 }

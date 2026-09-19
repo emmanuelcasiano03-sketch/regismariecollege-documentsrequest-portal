@@ -4,8 +4,6 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Clock, LogOut } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
 export default function PendingApprovalPage() {
   const supabase = createClient();
   const router = useRouter();
