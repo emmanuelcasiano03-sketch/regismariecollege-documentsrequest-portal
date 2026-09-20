@@ -148,9 +148,8 @@ export default function NewRequestPage() {
           reference_number: refNum,
           proof_image: "",
           amount: doc.fee * quantityOf(doc),
-          status: "Verified",
+          status: "Pending",
           payment_method: "walk_in",
-          verified_at: new Date().toISOString(),
         });
 
         if (payErr) {
@@ -158,8 +157,10 @@ export default function NewRequestPage() {
           return setError(payErr.message);
         }
 
-        // Walk-in is a face-to-face transaction at the registrar's office,
-        // so the request skips "Payment Verification" and stays pending.
+        // Walk-in is a face-to-face transaction at the registrar's office:
+        // the payment is recorded as Pending so the registrar confirms the
+        // cash collection (Approve on the Verify Payments page) before the
+        // request moves to Processing.
       }
     }
 

@@ -57,14 +57,16 @@ export default function VerifyPaymentsPage() {
   }, []);
 
   const visible = useMemo(
-    () => (tab === "pending" ? payments.filter((p) => p.status === "Pending" && p.payment_method !== "walk_in") : payments.filter((p) => p.status === (tab === "verified" ? "Verified" : "Rejected"))),
+    () =>
+      tab === "pending"
+        ? payments.filter((p) => p.status === "Pending")
+        : payments.filter((p) => p.status === (tab === "verified" ? "Verified" : "Rejected")),
     [payments, tab]
   );
 
   const counts = useMemo(() => {
     const base: Record<string, number> = { pending: 0, verified: 0, rejected: 0 };
     for (const p of payments) {
-      if (p.status === "Pending" && p.payment_method === "walk_in") continue;
       if (p.status === "Verified") base.verified++;
       else if (p.status === "Rejected") base.rejected++;
       else base.pending++;
@@ -92,7 +94,10 @@ export default function VerifyPaymentsPage() {
 
     const { error: reqErr } = await supabase
       .from("requests")
-      .update({ status: approve ? "Processing" : "Rejected" })
+      .update({
+        status: approve ? "Processing" : "Rejected",
+        ...(approve ? {} : { remarks: reason ?? null }),
+      })
       .eq("id", payment.request_id);
 
     if (payErr || reqErr) {
