@@ -12,6 +12,7 @@ type ReportRow = {
   copies: number;
   documents: { name: string; fee: number } | null;
   profiles: { full_name: string; course: string | null; student_number: string | null; email: string | null } | null;
+  payments: { payment_method: string; reference_number: string; amount: number }[] | null;
 };
 
 export default function ReportsPage() {
@@ -23,7 +24,7 @@ export default function ReportsPage() {
     (async () => {
       const { data } = await supabase
         .from("requests")
-        .select("tracking_code, status, created_at, copies, documents(name, fee), profiles(full_name, course, student_number, email)")
+        .select("tracking_code, status, created_at, copies, documents(name, fee), profiles(full_name, course, student_number, email), payments(payment_method, reference_number, amount)")
         .order("created_at", { ascending: false });
       setRows((data as unknown as ReportRow[]) ?? []);
       setLoading(false);
@@ -31,16 +32,22 @@ export default function ReportsPage() {
   }, []);
 
   function downloadCsv() {
-    const data = rows.map((r) => ({
-      full_name: r.profiles?.full_name ?? "",
-      course: r.profiles?.course ?? "",
-      student_number: r.profiles?.student_number ?? "",
-      student_email: r.profiles?.email ?? "",
-      document_name: r.documents?.name ?? "",
-      status: r.status,
-      copies: r.copies,
-      date: new Date(r.created_at).toLocaleDateString(),
-    }));
+    const data = rows.map((r) => {
+      const pay = Array.isArray(r.payments) ? r.payments[0] : null;
+      return {
+        full_name: r.profiles?.full_name ?? "",
+        course: r.profiles?.course ?? "",
+        student_number: r.profiles?.student_number ?? "",
+        student_email: r.profiles?.email ?? "",
+        document_name: r.documents?.name ?? "",
+        status: r.status,
+        copies: r.copies,
+        date: new Date(r.created_at).toLocaleDateString(),
+        receipt_number: pay?.reference_number ?? "",
+        payment_method: pay?.payment_method ?? "",
+        amount: pay?.amount ?? "",
+      };
+    });
     const csv = Papa.unparse(data);
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -88,6 +95,8 @@ export default function ReportsPage() {
             <thead>
               <tr className="border-b text-left text-slate-500">
                 <th className="py-2 pr-4">Tracking</th>
+                <th className="py-2 pr-4">Receipt</th>
+                <th className="py-2 pr-4">Method</th>
                 <th className="py-2 pr-4">Requestor</th>
                 <th className="py-2 pr-4">Document</th>
                 <th className="py-2 pr-4">Status</th>
@@ -95,15 +104,20 @@ export default function ReportsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
-                <tr key={i} className="table-row border-b border-slate-50">
-                  <td className="py-2.5 pr-4">{r.tracking_code}</td>
-                  <td className="py-2.5 pr-4">{r.profiles?.full_name}</td>
-                  <td className="py-2.5 pr-4">{r.documents?.name}</td>
-                  <td className="py-2.5 pr-4">{r.status}</td>
-                  <td className="py-2.5 pr-4">{new Date(r.created_at).toLocaleDateString()}</td>
-                </tr>
-              ))}
+              {rows.map((r, i) => {
+                const pay = Array.isArray(r.payments) ? r.payments[0] : null;
+                return (
+                  <tr key={i} className="table-row border-b border-slate-50">
+                    <td className="py-2.5 pr-4">{r.tracking_code}</td>
+                    <td className="py-2.5 pr-4 font-mono text-xs">{pay?.reference_number || "—"}</td>
+                    <td className="py-2.5 pr-4 capitalize">{pay?.payment_method || "—"}</td>
+                    <td className="py-2.5 pr-4">{r.profiles?.full_name}</td>
+                    <td className="py-2.5 pr-4">{r.documents?.name}</td>
+                    <td className="py-2.5 pr-4">{r.status}</td>
+                    <td className="py-2.5 pr-4">{new Date(r.created_at).toLocaleDateString()}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

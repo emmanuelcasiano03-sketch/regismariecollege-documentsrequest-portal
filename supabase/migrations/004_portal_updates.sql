@@ -168,3 +168,38 @@ create policy "account_rejections_select_staff" on public.account_rejections
 
 create policy "account_rejections_insert_staff" on public.account_rejections
   for insert with check (public.is_staff());
+
+-- ------------------------------------------------------------
+-- Phase 4: sequential receipt numbers
+-- reference_number becomes a deterministic, sequential receipt number
+-- (RMP-YYYY-NNNN) assigned by the database on insert, so the office ledger
+-- and the reports CSV stay in sync regardless of which flow created the
+-- payment.
+-- ------------------------------------------------------------
+
+create sequence if not exists public.receipt_seq;
+
+create or replace function public.generate_receipt_number()
+returns text
+language sql
+as $$
+  select 'RMP-' || to_char(now(), 'YYYY') || '-' || lpad(nextval('public.receipt_seq')::text, 4, '0');
+$$;
+
+create or replace function public.assign_receipt_number()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.reference_number := public.generate_receipt_number();
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_assign_receipt_number on public.payments;
+create trigger trg_assign_receipt_number
+  before insert on public.payments
+  for each row execute function public.assign_receipt_number();
+
+create unique index if not exists payments_reference_number_key on public.payments (reference_number);
