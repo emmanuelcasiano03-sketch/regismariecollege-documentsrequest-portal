@@ -38,7 +38,9 @@ There is **one** email path in the app — everything goes through
      audit trail (with a status-change trigger and backfill), rejection-reason
      enforcement triggers, the `account_rejections` log, and the sequential
      `RMP-YYYY-NNNN` receipt-number trigger. This file is fully additive and
-     safe to run in one query after the three files above.
+     safe to run in one query after the three files above. It also reclassifies
+     legacy auto-verified walk-in payments back to Pending so the registrar can
+     approve them (run it once, after your data is loaded).
 4. Go to **Project Settings → API** and copy the **Project URL**, **anon
    public key**, and **service role key**. The service role key is a secret —
    it is never committed (see `.env.local.example`) and powers the auth API

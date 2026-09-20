@@ -204,3 +204,18 @@ create trigger trg_assign_receipt_number
   for each row execute function public.assign_receipt_number();
 
 create unique index if not exists payments_reference_number_key on public.payments (reference_number);
+
+-- ------------------------------------------------------------
+-- Phase 4 (data fix): reclassify legacy auto-verified walk-ins
+-- Walk-in payments used to be inserted as Verified at request submission
+-- (verified_at set, no verifier). Now they must be reviewed by the
+-- registrar, so move those auto-flagged rows back to Pending. Rows that a
+-- registrar actually approved (verified_by is set) are left untouched.
+-- Safe to run any time; the second run is a no-op.
+-- ------------------------------------------------------------
+
+update public.payments
+set status = 'Pending', verified_at = null
+where payment_method = 'walk_in'
+  and status = 'Verified'
+  and verified_by is null;
