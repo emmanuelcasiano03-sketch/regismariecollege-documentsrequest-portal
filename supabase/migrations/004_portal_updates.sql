@@ -4,8 +4,9 @@
 --
 -- Run in the Supabase SQL editor AFTER schema.sql, 002_features.sql,
 -- and 003_security_hardening.sql (in that order). This file is additive
--- and idempotent where possible; it can be edited to add the Phase 3/4
--- sections before running.
+-- and idempotent where possible; safe to run in a single query.
+-- It contains the Phase 2-4 portal additions: the request_events audit
+-- trail, rejection-reason enforcement, and sequential receipt numbers.
 -- ============================================================
 
 -- ------------------------------------------------------------

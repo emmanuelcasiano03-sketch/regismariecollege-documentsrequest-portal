@@ -34,9 +34,11 @@ There is **one** email path in the app — everything goes through
      Good Moral/Diploma approval columns, and the class-list field.
    - `supabase/migrations/003_security_hardening.sql` — hardens the
      registration trigger and updates the `is_staff()` helper.
-   - `supabase/migrations/004_portal_updates.sql` (once the Phase 2–4 portal
-     migration lands) — request history audit table, pickup/receipt fields,
-     rejection reasons, and the walk-in receipt-number flow.
+   - `supabase/migrations/004_portal_updates.sql` — request `request_events`
+     audit trail (with a status-change trigger and backfill), rejection-reason
+     enforcement triggers, the `account_rejections` log, and the sequential
+     `RMP-YYYY-NNNN` receipt-number trigger. This file is fully additive and
+     safe to run in one query after the three files above.
 4. Go to **Project Settings → API** and copy the **Project URL**, **anon
    public key**, and **service role key**. The service role key is a secret —
    it is never committed (see `.env.local.example`) and powers the auth API
