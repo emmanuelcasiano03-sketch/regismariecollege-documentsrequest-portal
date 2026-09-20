@@ -219,7 +219,7 @@ export default function VerifyPaymentsPage() {
                 </div>
               )}
 
-              {tab === "pending" && (
+              {tab === "pending" && p.status === "Pending" && (
                 rejectingId === p.id ? (
                   <div className="space-y-2">
                     <textarea
