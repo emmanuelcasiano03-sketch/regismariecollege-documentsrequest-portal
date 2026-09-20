@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Payment } from "@/lib/types";
 import { sendNotification } from "@/lib/notify";
 import { CreditCard } from "lucide-react";
+import Badge from "@/components/ui/Badge";
 import { toast } from "sonner";
 
 type PaymentRow = Payment & {
@@ -205,10 +206,17 @@ export default function VerifyPaymentsPage() {
                 ₱{p.amount}
               </p>
               {tab !== "pending" && (
-                <p className="text-xs text-slate-500">
-                  {p.status.toLowerCase()} on {new Date(p.verified_at ?? p.created_at).toLocaleDateString()}
-                  {p.status === "Rejected" && p.rejection_reason ? ` · ${p.rejection_reason}` : ""}
-                </p>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <Badge tone={p.status === "Verified" ? "emerald" : "red"}>
+                    {p.status === "Verified" ? "Approved" : "Rejected"}
+                  </Badge>
+                  <span className="text-slate-500">
+                    {new Date(p.verified_at ?? p.created_at).toLocaleString()}
+                  </span>
+                  {p.status === "Rejected" && p.rejection_reason && (
+                    <span className="w-full text-slate-500">Reason: {p.rejection_reason}</span>
+                  )}
+                </div>
               )}
 
               {tab === "pending" && (
