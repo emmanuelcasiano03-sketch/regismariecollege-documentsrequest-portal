@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { ApprovalStatus } from "@/lib/types";
 import { sendNotification } from "@/lib/notify";
 import { ClipboardCheck } from "lucide-react";
+import Modal from "@/components/ui/Modal";
 import { toast } from "sonner";
 
 type GoodMoralRequest = {
@@ -175,9 +176,15 @@ export default function GuidanceApprovalsPage() {
         </div>
       )}
 
-      {rejectingId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-xl">
+      <Modal
+        open={rejectingId !== null}
+        onClose={() => {
+          setRejectingId(null);
+          setRejectReason("");
+        }}
+        cardClassName="max-w-md"
+        ariaLabel="Reject Good Moral Certificate"
+      >
             <h3 className="text-base font-bold text-slate-900">Reject Good Moral Certificate</h3>
             <p className="mt-1 text-sm text-slate-500">
               Enter the reason for declining this request. It will be emailed to the student and shown on their request page.
@@ -211,9 +218,7 @@ export default function GuidanceApprovalsPage() {
                 {decidingId !== null ? "Declining…" : "Confirm Reject"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }

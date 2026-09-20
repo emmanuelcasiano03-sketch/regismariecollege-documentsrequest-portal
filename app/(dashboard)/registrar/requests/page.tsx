@@ -8,6 +8,8 @@ import { printName, titleCaseName } from "@/lib/validation";
 import { Search, Inbox, Clock, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import PrintDocument, { type PrintDoc } from "@/components/PrintDocument";
+import Modal from "@/components/ui/Modal";
+import Badge from "@/components/ui/Badge";
 
 type Step = { label: string; app: string[] };
 
@@ -660,15 +662,19 @@ export default function ManageRequestsPage() {
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="text-sm font-semibold text-slate-900">{r.documents?.name}</h3>
                             {walkin && (
-                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                              <Badge tone="amber" className="text-[10px] uppercase tracking-wide">
                                 Walk-in
-                              </span>
+                              </Badge>
                             )}
                             {r.status === "Rejected" && (
-                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${meta.chip}`}>Rejected</span>
+                              <Badge tone="red" className="text-[10px] uppercase">
+                                Rejected
+                              </Badge>
                             )}
                             {r.status === "Cancelled" && (
-                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${meta.chip}`}>Cancelled</span>
+                              <Badge tone="slate" className="text-[10px] uppercase">
+                                Cancelled
+                              </Badge>
                             )}
                           </div>
                           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-slate-500">
@@ -806,8 +812,12 @@ export default function ManageRequestsPage() {
       )}
 
       {pickupTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-xl bg-white p-5 shadow-xl">
+        <Modal
+          open={!!pickupTarget}
+          onClose={() => setPickupTarget(null)}
+          cardClassName="max-w-sm"
+          ariaLabel="Schedule pickup"
+        >
             <h3 className="text-base font-bold text-slate-900">
               {pickupTarget.kind === "bulk" ? `Schedule pickup — ${pickupTarget.docs.length} requests` : "Schedule Pickup"}
             </h3>
@@ -836,13 +846,19 @@ export default function ManageRequestsPage() {
                 {updatingId !== null ? "Saving…" : "Save Schedule"}
               </button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {rejectTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-xl">
+        <Modal
+          open={!!rejectTarget}
+          onClose={() => {
+            setRejectTarget(null);
+            setRejectReason("");
+          }}
+          cardClassName="max-w-md"
+          ariaLabel="Reject request"
+        >
             <h3 className="text-base font-bold text-slate-900">
               {isWalkIn(rejectTarget) ? "Cancel request" : "Reject request"}
             </h3>
@@ -880,8 +896,7 @@ export default function ManageRequestsPage() {
                 {updatingId !== null ? "Saving…" : isWalkIn(rejectTarget) ? "Confirm Cancel" : "Confirm Reject"}
               </button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {tab === "active" && (
